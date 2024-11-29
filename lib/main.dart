@@ -12,8 +12,8 @@ import 'screens/verification_screen.dart';
 import 'screens/forgotpw_screen.dart';
 import 'screens/setnewpw_screen.dart';
 import 'screens/verifycodepw_screen.dart';
+import 'screens/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-
 
 void main() async {
   // Pastikan widget binding sudah diinisialisasi
@@ -64,8 +64,9 @@ class PolylingoApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/landing',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (context) => const SplashScreen(),
         '/landing': (context) => const LandingPage(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),        

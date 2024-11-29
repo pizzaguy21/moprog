@@ -3,6 +3,8 @@ import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'quiz_japanese.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class JapaneseCoursePage extends StatefulWidget {
   @override
@@ -18,33 +20,32 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
   final List<Map<String, dynamic>> courses = [
     {
       'title': 'Hiragana & Katakana',
-      'description':
-          'Learn the basic Japanese alphabets to start your journey.',
-      'icon': Icons.book,
+      'description': 'Learn the basic Japanese alphabets to start your journey.',
+      'icon': 'book', // Icon as string
       'link': 'https://youtu.be/hQzRdI14Z8g'
     },
     {
       'title': 'Basic Greetings',
       'description': 'Learn essential phrases to greet and introduce yourself.',
-      'icon': Icons.handshake,
+      'icon': 'handshake',
       'link': 'https://youtu.be/ql2qtZZOxsQ'
     },
     {
       'title': 'Essential Grammar',
       'description': 'Understand the fundamental grammar rules of Japanese.',
-      'icon': Icons.edit_note,
+      'icon': 'edit_note',
       'link': 'https://youtu.be/k5w-F64P8mI'
     },
     {
       'title': 'Pronunciation Tips',
       'description': 'Get tips to pronounce Japanese words correctly.',
-      'icon': Icons.record_voice_over,
+      'icon': 'record_voice_over',
       'link': 'https://youtu.be/aHwvTpByJX8'
     },
     {
       'title': 'Quiz',
       'description': 'Let’s put your knowledge to the test!',
-      'icon': Icons.quiz,
+      'icon': 'quiz',
       'link': null
     },
   ];
@@ -72,7 +73,6 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
         (index) => prefs.getBool('japanese_course_$index') ?? false,
       );
     });
-    print('Loaded progress for Japanese course: $checkedStatus');
   }
 
   Future<void> _saveProgress() async {
@@ -80,7 +80,6 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
     for (int i = 0; i < checkedStatus.length; i++) {
       await prefs.setBool('japanese_course_$i', checkedStatus[i]);
     }
-    print('Saved progress for Japanese course: $checkedStatus');
   }
 
   void updateProgress(bool isChecked, int index) {
@@ -95,10 +94,57 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      print('Cannot launch URL: $url');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not launch URL: $url')),
       );
+    }
+  }
+
+  Future<void> _updateWishlist(Map<String, dynamic> course) async {
+    try {
+      // Get the current user
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("User not logged in");
+      }
+
+      // Reference to the user document in Firestore
+      DocumentReference userDoc = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+
+      // Update wishlist in Firestore
+      if (favoriteCourses.contains(course)) {
+        favoriteCourses.remove(course);
+        await userDoc.update({
+          'wishlist': FieldValue.arrayRemove([course]),
+        });
+      } else {
+        favoriteCourses.add(course);
+        await userDoc.update({
+          'wishlist': FieldValue.arrayUnion([course]),
+        });
+      }
+      setState(() {}); // Update UI
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating wishlist: $e')),
+      );
+    }
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'book':
+        return Icons.book;
+      case 'handshake':
+        return Icons.handshake;
+      case 'edit_note':
+        return Icons.edit_note;
+      case 'record_voice_over':
+        return Icons.record_voice_over;
+      case 'quiz':
+        return Icons.quiz;
+      default:
+        return Icons.help_outline;
     }
   }
 
@@ -135,14 +181,8 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
                             : Icons.favorite_border,
                         color: Colors.white,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          if (favoriteCourses.contains(courses[currentIndex])) {
-                            favoriteCourses.remove(courses[currentIndex]);
-                          } else {
-                            favoriteCourses.add(courses[currentIndex]);
-                          }
-                        });
+                      onPressed: () async {
+                        await _updateWishlist(courses[currentIndex]);
                       },
                     ),
                   ],
@@ -294,7 +334,7 @@ class _JapaneseCoursePageState extends State<JapaneseCoursePage> {
 class CourseCard extends StatelessWidget {
   final String title;
   final String description;
-  final IconData icon;
+  final String icon;
   final bool isChecked;
   final String? link;
   final Function(bool) onChecked;
@@ -311,6 +351,23 @@ class CourseCard extends StatelessWidget {
     this.onQuizPressed,
     required this.onOpenURL,
   });
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'book':
+        return Icons.book;
+      case 'handshake':
+        return Icons.handshake;
+      case 'edit_note':
+        return Icons.edit_note;
+      case 'record_voice_over':
+        return Icons.record_voice_over;
+      case 'quiz':
+        return Icons.quiz;
+      default:
+        return Icons.help_outline;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +389,7 @@ class CourseCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFFA6C4E5), size: 100),
+              Icon(_getIconData(icon), color: const Color(0xFFA6C4E5), size: 100),
               const Spacer(),
               Checkbox(
                 value: isChecked,
